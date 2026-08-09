@@ -1,0 +1,7 @@
+# Archivos de entorno y configuración sensible
+.env
+php.ini
+
+# Carpetas temporales o de entorno local
+/vendor/
+/node_modules/
