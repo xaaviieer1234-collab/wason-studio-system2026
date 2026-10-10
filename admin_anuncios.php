@@ -2,8 +2,8 @@
 session_start();
 include 'conexion.php';
 
-if (!isset($_SESSION['usuario']) || $_SESSION['rol'] != 'admin') {
-    header('Location: index.php');
+if (!isset($_SESSION['usuario']) || $_SESSION['rol'] != 'admin' || empty($_SESSION['tenant_id'])) {
+    header('Location: ' . tenantRedirect('index.php'));
     exit();
 }
 
@@ -11,14 +11,22 @@ if (!isset($_SESSION['usuario']) || $_SESSION['rol'] != 'admin') {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_toggle'])) {
     $id = intval($_POST['id'] ?? 0);
     if ($id > 0) {
-        $res = $conn->query("SELECT estado FROM anuncios WHERE id=$id");
+        $select_stmt = $conn->prepare("SELECT estado FROM anuncios WHERE id = ? AND tenant_id = ? LIMIT 1");
+        $select_stmt->bind_param('ii', $id, $tenant_id);
+        $select_stmt->execute();
+        $res = $select_stmt->get_result();
         if ($res && $row = $res->fetch_assoc()) {
             $nuevo = $row['estado'] ? 0 : 1;
-            $conn->query("UPDATE anuncios SET estado=$nuevo WHERE id=$id");
+            $update_stmt = $conn->prepare("UPDATE anuncios SET estado = ? WHERE id = ? AND tenant_id = ?");
+            $update_stmt->bind_param('iii', $nuevo, $id, $tenant_id);
+            $update_stmt->execute();
+            $update_stmt->close();
+            $select_stmt->close();
             header('Content-Type: application/json');
             echo json_encode(['ok' => true, 'estado' => $nuevo]);
             exit();
         }
+        $select_stmt->close();
     }
     header('Content-Type: application/json');
     echo json_encode(['ok' => false]);
@@ -29,14 +37,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_toggle'])) {
 if (isset($_GET['delete_id'])) {
     $del = intval($_GET['delete_id']);
     if ($del > 0) {
-        // eliminar imagen asociada
-        $r = $conn->query("SELECT imagen FROM anuncios WHERE id=$del");
+        $select_stmt = $conn->prepare("SELECT imagen FROM anuncios WHERE id = ? AND tenant_id = ? LIMIT 1");
+        $select_stmt->bind_param('ii', $del, $tenant_id);
+        $select_stmt->execute();
+        $r = $select_stmt->get_result();
         if ($r && $row = $r->fetch_assoc()) {
             if (!empty($row['imagen'])) {
                 @unlink(__DIR__ . '/img/anuncios/' . $row['imagen']);
             }
         }
-        $conn->query("DELETE FROM anuncios WHERE id=$del");
+        $select_stmt->close();
+
+        $delete_stmt = $conn->prepare("DELETE FROM anuncios WHERE id = ? AND tenant_id = ?");
+        $delete_stmt->bind_param('ii', $del, $tenant_id);
+        $delete_stmt->execute();
+        $delete_stmt->close();
     }
     header('Location: admin_anuncios.php');
     exit();
@@ -49,35 +64,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar_anuncio'])) {
     $contenido = $conn->real_escape_string(trim($_POST['contenido'] ?? ''));
     $enlace = $conn->real_escape_string(trim($_POST['enlace'] ?? ''));
     $estado = isset($_POST['estado']) ? 1 : 0;
+    $audiencia = 'barberia';
+    $roles_destino = 'todos';
 
     // manejar imagen
     $imagen_nombre = null;
-    if (!empty($_FILES['imagen']['name'])) {
+    if (!empty($_FILES['imagen']['name']) && ($_FILES['imagen']['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK) {
         $dir = __DIR__ . '/img/anuncios';
         if (!is_dir($dir)) mkdir($dir, 0755, true);
-        $ext = pathinfo($_FILES['imagen']['name'], PATHINFO_EXTENSION);
-        $imagen_nombre = uniqid('ad_') . '.' . $ext;
-        move_uploaded_file($_FILES['imagen']['tmp_name'], $dir . '/' . $imagen_nombre);
+        $ext = strtolower(pathinfo($_FILES['imagen']['name'], PATHINFO_EXTENSION));
+        $allowed = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+        if (in_array($ext, $allowed, true) && @getimagesize($_FILES['imagen']['tmp_name'])) {
+            $imagen_nombre = uniqid('ad_') . '.' . $ext;
+            move_uploaded_file($_FILES['imagen']['tmp_name'], $dir . '/' . $imagen_nombre);
+        }
     }
 
     if (!empty($_POST['id'])) {
         $id = intval($_POST['id']);
-        // actualizar
-        $sql = "UPDATE anuncios SET titulo='$titulo', contenido='$contenido', enlace='" . $enlace . "', estado=$estado";
+        $sql = "UPDATE anuncios SET titulo = ?, contenido = ?, enlace = ?, estado = ?, audiencia = 'barberia', roles_destino = 'todos'";
         if ($imagen_nombre) {
-            // borrar vieja
-            $r = $conn->query("SELECT imagen FROM anuncios WHERE id=$id");
+            $img_select = $conn->prepare("SELECT imagen FROM anuncios WHERE id = ? AND tenant_id = ? LIMIT 1");
+            $img_select->bind_param('ii', $id, $tenant_id);
+            $img_select->execute();
+            $r = $img_select->get_result();
             if ($r && $row = $r->fetch_assoc()) {
                 if (!empty($row['imagen'])) @unlink(__DIR__ . '/img/anuncios/' . $row['imagen']);
             }
-            $sql .= ", imagen='$imagen_nombre'";
+            $img_select->close();
+            $sql .= ", imagen = ?";
+            $stmt = $conn->prepare($sql . " WHERE id = ? AND tenant_id = ?");
+            $stmt->bind_param('sssiisi', $titulo, $contenido, $enlace, $estado, $imagen_nombre, $id, $tenant_id);
+            $stmt->execute();
+            $stmt->close();
+        } else {
+            $stmt = $conn->prepare($sql . " WHERE id = ? AND tenant_id = ?");
+            $stmt->bind_param('sssii', $titulo, $contenido, $enlace, $estado, $id, $tenant_id);
+            $stmt->execute();
+            $stmt->close();
         }
-        $sql .= " WHERE id=$id";
-        $conn->query($sql);
     } else {
-        // insertar
-        $img_sql = $imagen_nombre ? "'$imagen_nombre'" : 'NULL';
-        $conn->query("INSERT INTO anuncios (titulo, contenido, imagen, enlace, estado) VALUES ('$titulo', '$contenido', $img_sql, '$enlace', $estado)");
+        $img_sql = $imagen_nombre ? $imagen_nombre : null;
+        $stmt = $conn->prepare("INSERT INTO anuncios (titulo, contenido, imagen, enlace, estado, audiencia, roles_destino, tenant_id) VALUES (?, ?, ?, ?, ?, 'barberia', 'todos', ?)");
+        $stmt->bind_param('ssssii', $titulo, $contenido, $img_sql, $enlace, $estado, $tenant_id);
+        $stmt->execute();
+        $stmt->close();
     }
 
     header('Location: admin_anuncios.php');
@@ -86,20 +117,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar_anuncio'])) {
 
 if (isset($_GET['edit_id'])) {
     $eid = intval($_GET['edit_id']);
-    $res = $conn->query("SELECT * FROM anuncios WHERE id=$eid");
+    $stmt = $conn->prepare("SELECT * FROM anuncios WHERE id = ? AND tenant_id = ? LIMIT 1");
+    $stmt->bind_param('ii', $eid, $tenant_id);
+    $stmt->execute();
+    $res = $stmt->get_result();
     if ($res && $res->num_rows > 0) $editar = $res->fetch_assoc();
+    $stmt->close();
 }
 
 // listar
-$result = $conn->query("SELECT * FROM anuncios ORDER BY fecha_creacion DESC");
+$stmt = $conn->prepare("SELECT * FROM anuncios WHERE tenant_id = ? ORDER BY fecha_creacion DESC");
+$stmt->bind_param('i', $tenant_id);
+$stmt->execute();
+$result = $stmt->get_result();
 $anuncios = [];
 while ($row = $result->fetch_assoc()) $anuncios[] = $row;
+$stmt->close();
 ?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
+    <link rel="icon" type="image/png" href="img/logomdj.png?v=20260930">
     <title>Admin - Anuncios</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
@@ -118,6 +158,8 @@ while ($row = $result->fetch_assoc()) $anuncios[] = $row;
         .toggle:hover{color:#fcd34d;}
         @media(max-width:900px){.grid{grid-template-columns:1fr}.list th,.list td{text-align:left;}}
     </style>
+    <link rel="stylesheet" href="responsive.css?v=1">
+    <link rel="stylesheet" href="app-theme.css?v=2">
 </head>
 <body>
     <div class="container">

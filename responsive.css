@@ -1,0 +1,208 @@
+html {
+    font-size: clamp(14px, calc(13.5px + 0.15vw), 16px);
+    text-size-adjust: 100%;
+    -webkit-text-size-adjust: 100%;
+}
+
+body {
+    min-width: 320px;
+    font-size: 1rem;
+    line-height: 1.5;
+    overflow-x: hidden;
+}
+
+h1,
+h2,
+h3 {
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+}
+
+h1 { font-size: clamp(1.4rem, calc(1.1rem + 1.2vw), 2.1rem) !important; }
+h2 { font-size: clamp(1.15rem, calc(1rem + 0.65vw), 1.55rem) !important; }
+h3 { font-size: clamp(1rem, calc(0.94rem + 0.35vw), 1.25rem) !important; }
+
+img,
+video,
+iframe {
+    max-width: 100%;
+}
+
+input,
+select,
+textarea,
+button {
+    max-width: 100%;
+    font-family: inherit;
+}
+
+input,
+select,
+textarea {
+    min-width: 0;
+}
+
+.table-wrap,
+.tabla-contenedor,
+.table,
+.list,
+.admin-anuncios .anuncios-lista {
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 760px) {
+    body {
+        padding: clamp(12px, 3vw, 20px) !important;
+    }
+
+    .grid {
+        grid-template-columns: minmax(0, 1fr) !important;
+    }
+
+    .top,
+    .topbar,
+    .admin-hero,
+    .hero-card {
+        flex-wrap: wrap;
+        align-items: flex-start;
+    }
+
+    .admin-hero {
+        min-height: 0;
+    }
+
+    .admin-hero-content,
+    .identity,
+    .brand {
+        min-width: 0;
+        max-width: 100%;
+    }
+
+    .day-grid,
+    .slot-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .profile-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .profile-grid .wide {
+        grid-column: auto;
+    }
+
+    .announcement-card + .announcement-card {
+        margin-left: 0;
+    }
+
+    .account-actions,
+    .header-actions {
+        flex-wrap: wrap;
+    }
+
+    .schedule-meta {
+        align-items: flex-start;
+    }
+}
+
+@media (max-width: 520px) {
+    .top,
+    .topbar,
+    .brand,
+    .identity,
+    .admin-hero-content,
+    .cabecera {
+        gap: 12px;
+    }
+
+    .brand-mark {
+        min-width: 0;
+        max-width: 34vw;
+    }
+
+    .admin-hero-avatar {
+        width: clamp(64px, 20vw, 96px);
+        height: clamp(64px, 20vw, 96px);
+    }
+
+    .panel-card,
+    .card,
+    .schedule-shell,
+    .contenedor,
+    .slot-card {
+        padding: clamp(14px, 4vw, 22px);
+    }
+
+    .week-nav {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        align-items: stretch;
+        padding: 12px;
+    }
+
+    .week-range {
+        grid-column: 1 / -1;
+        grid-row: 1;
+        width: 100%;
+        text-align: center;
+    }
+
+    .week-nav > :first-child {
+        grid-column: 1;
+        grid-row: 2;
+    }
+
+    .week-nav > :last-child {
+        grid-column: 2;
+        grid-row: 2;
+    }
+
+    .week-nav > a,
+    .week-nav > .disabled {
+        justify-content: center;
+        min-width: 0;
+        padding: 10px 8px;
+        text-align: center;
+        white-space: normal;
+    }
+
+    .topbar > .btn-ghost {
+        align-self: stretch;
+        width: 100%;
+        min-height: 48px;
+    }
+
+    .detalle {
+        grid-template-columns: minmax(78px, 0.7fr) minmax(0, 1.3fr);
+        gap: 8px 12px;
+    }
+
+    .btn,
+    .btn-logout,
+    .boton {
+        max-width: 100%;
+        white-space: normal;
+        text-align: center;
+    }
+}
+
+.barber-schedule.accordion-section { margin-bottom: 20px; }
+.barber-schedule .accordion-header { background-color: #1f1f1f; border: 1px solid #333; padding: 15px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; border-radius: 8px; margin-bottom: 15px; user-select: none; font-size: 16px; font-weight: bold; color: var(--accent); transition: all 0.3s ease; }
+.barber-schedule .accordion-header:hover { background-color: #2a2a2a; box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 20%, transparent); }
+.barber-schedule .accordion-header.active { background-color: #0f0f0f; border-color: var(--accent); }
+.barber-schedule .accordion-toggle { font-size: 20px; transition: transform 0.3s ease; }
+.barber-schedule .accordion-toggle.active { transform: rotate(180deg); }
+.barber-schedule .accordion-content { display: none; padding: 0; overflow: hidden; transition: all 0.3s ease; }
+.barber-schedule .accordion-content.active { display: block; }
+.barber-schedule .accordion-content > .card { padding: 16px; margin-bottom: 0; }
+.barber-schedule form > label { gap: 6px; margin: 0 0 12px; }
+.barber-schedule .days { grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr)); gap: 8px; margin-top: 6px; }
+.barber-schedule .day { display: flex; align-items: center; justify-content: flex-start; gap: 10px; min-width: 0; margin: 0; padding: 9px 10px; border: 1px solid var(--border); border-radius: 8px; background: rgba(255,255,255,.025); }
+.barber-schedule .day input[type="checkbox"] { width: 18px; height: 18px; flex: 0 0 18px; margin: 0; padding: 0; accent-color: var(--accent); }
+.barber-dashboard { grid-template-columns: minmax(0, 1fr); }
+.barber-dashboard > * { min-width: 0; }
+.announcement-card.superadmin,
+.announcement-card.admin,
+.anuncio-publico { background: rgba(245, 158, 11, 0.18); }

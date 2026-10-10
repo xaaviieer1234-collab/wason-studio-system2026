@@ -1,17 +1,15 @@
 <?php
 session_start();
-include 'telegram.php';
+include 'conexion.php';
 if (!isset($_SESSION['ultima_cita'])) {
-    header('Location: index.php');
+    header('Location: ' . tenantRedirect('index.php'));
     exit();
 }
 $cita = $_SESSION['ultima_cita'];
 unset($_SESSION['ultima_cita']);
 
 $barberoSeleccionado = !empty($cita['barbero']) ? $cita['barbero'] : 'Cualquiera';
-$mensajeConfirmacion = "Nueva cita agendada en Wason Studio:\nCliente: {$cita['nombre']}\nTeléfono: {$cita['telefono']}\nCorreo: {$cita['usuario_correo']}\nServicio: {$cita['servicio']}\nBarbero: {$barberoSeleccionado}\nFecha: {$cita['dia']}\nHora: {$cita['hora']}";
-enviarMensajeTelegram($mensajeConfirmacion);
-
+$notaCita = !empty($cita['nota']) ? "\nNota: {$cita['nota']}" : '';
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -19,6 +17,7 @@ enviarMensajeTelegram($mensajeConfirmacion);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="img/logomdj.png?v=20260930">
     <title>Confirmación de Cita | Barbería</title>
     <style>
         body {
@@ -78,14 +77,15 @@ enviarMensajeTelegram($mensajeConfirmacion);
             gap: 10px 18px;
             padding: 18px 0;
             border-top: 1px solid rgba(255, 255, 255, 0.06);
-            color: #e6e6e6;
+            color: #263a50;
         }
         .detalle p {
             margin: 0;
             line-height: 1.7;
+            color: #263a50;
         }
         .detalle strong {
-            color: #f7c948;
+            color: #8b5e08;
             font-weight: 600;
         }
         .acciones {
@@ -117,6 +117,8 @@ enviarMensajeTelegram($mensajeConfirmacion);
             line-height: 1.6;
         }
     </style>
+    <link rel="stylesheet" href="responsive.css?v=1">
+    <link rel="stylesheet" href="app-theme.css?v=2">
 </head>
 <body>
     <div class="contenedor">

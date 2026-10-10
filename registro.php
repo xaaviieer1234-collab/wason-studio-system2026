@@ -1,31 +1,56 @@
 <?php
 include 'conexion.php';
-include 'telegram.php';
+
+$barberia_slug = trim($_POST['barberia'] ?? $_GET['barberia'] ?? ($_SESSION['barberia_slug'] ?? ''));
+if ($barberia_slug !== '') {
+    $slug = $conn->real_escape_string($barberia_slug);
+    $barberia_row = $conn->query("SELECT id FROM barberias WHERE slug = '$slug' AND estado = 'activa' LIMIT 1")->fetch_assoc();
+    if ($barberia_row) {
+        $tenant_id = intval($barberia_row['id']);
+        $_SESSION['tenant_id'] = $tenant_id;
+        $_SESSION['barberia_slug'] = $barberia_slug;
+    }
+}
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $correo = trim($_POST['correo'] ?? '');
     $password = trim($_POST['password'] ?? '');
+    $barberia_slug = trim($_POST['barberia'] ?? $_GET['barberia'] ?? ($_SESSION['barberia_slug'] ?? ''));
 
-    if ($correo === '' || $password === '') {
-        echo "<script>alert('Completa todos los campos para registrarte.'); window.location.href='registro.php';</script>";
+    if ($barberia_slug === '') {
+        echo "<script>alert('Debes abrir esta página desde una barbería válida.'); window.location.href='index.php';</script>";
         exit();
     }
 
-    $correo = $conn->real_escape_string($correo);
-    $password = $conn->real_escape_string($password);
-
-    $check = $conn->query("SELECT * FROM usuarios WHERE correo = '$correo'");
-    if ($check && $check->num_rows > 0) {
-        echo "<script>alert('Este correo ya está registrado.'); window.location.href='registro.php';</script>";
+    if ($correo === '' || $password === '') {
+        echo "<script>alert('Completa todos los campos para registrarte.'); window.location.href='registro.php?barberia=" . urlencode($barberia_slug) . "';</script>";
         exit();
-    } else {
-        $sql = "INSERT INTO usuarios (correo, password, rol) VALUES ('$correo', '$password', 'cliente')";
-        if ($conn->query($sql)) {
-            $mensaje = "Nuevo registro en Wason Studio:\nCorreo: $correo\nRol: cliente";
-            enviarMensajeTelegram($mensaje);
-            echo "<script>alert('¡Registro exitoso! Ya puedes iniciar sesión.'); window.location.href='index.php';</script>";
-            exit();
-        }
+    }
+
+    $barberia_row = $conn->query("SELECT id FROM barberias WHERE slug = '" . $conn->real_escape_string($barberia_slug) . "' AND estado = 'activa' LIMIT 1")->fetch_assoc();
+    if (!$barberia_row) {
+        echo "<script>alert('La barbería indicada no está disponible.'); window.location.href='index.php';</script>";
+        exit();
+    }
+    $tenant_id = intval($barberia_row['id']);
+    $_SESSION['tenant_id'] = $tenant_id;
+    $_SESSION['barberia_slug'] = $barberia_slug;
+
+    $check = $conn->prepare("SELECT id FROM usuarios WHERE correo = ? AND tenant_id = ? LIMIT 1");
+    $check->bind_param('si', $correo, $tenant_id);
+    $check->execute();
+    $check_result = $check->get_result();
+    if ($check_result && $check_result->num_rows > 0) {
+        echo "<script>alert('Este correo ya está registrado.'); window.location.href='registro.php?barberia=" . urlencode($barberia_slug) . "';</script>";
+        exit();
+    }
+
+    $password_hash = password_hash($password, PASSWORD_DEFAULT);
+    $insert = $conn->prepare("INSERT INTO usuarios (correo, password, rol, tenant_id, activo, puntos, fidelizacion_activa) VALUES (?, ?, 'cliente', ?, 1, 0, 0)");
+    $insert->bind_param('ssi', $correo, $password_hash, $tenant_id);
+    if ($insert->execute()) {
+        echo "<script>alert('¡Registro exitoso! Ya puedes iniciar sesión.'); window.location.href='index.php?barberia=" . urlencode($barberia_slug) . "';</script>";
+        exit();
     }
 }
 ?>
@@ -33,6 +58,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="img/logomdj.png?v=20260930">
     <title>Registro de Cliente | Barbería</title>
     <style>
         :root {
@@ -179,6 +206,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             }
         }
     </style>
+    <link rel="stylesheet" href="responsive.css?v=1">
+    <link rel="stylesheet" href="app-theme.css?v=2">
 </head>
 <body>
     <div class="contenedor">
@@ -186,7 +215,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         <h3>Crear cuenta</h3>
         <p class="subtitle">Registra tu correo y contraseña para reservar tu próxima cita en Wason Studio.</p>
 
-        <form action="registro.php" method="POST">
+        <form action="registro.php?barberia=<?php echo urlencode($barberia_slug); ?>" method="POST">
+            <input type="hidden" name="barberia" value="<?php echo htmlspecialchars($barberia_slug); ?>">
             <div class="form-grid">
                 <div class="field">
                     <label for="correo">Correo electrónico</label>
